@@ -75,7 +75,30 @@ const client = new Client({
 client.once('ready', () => {
   console.log(`🕷️ Pintas Voice Bridge online as ${client.user.tag}`);
   console.log(`   Active channel: ${activeChannelId}`);
-  console.log(`   Listening for voice in any channel I'm invited to join`);
+  
+  // Auto-join on startup
+  setTimeout(() => autoJoinVoice(), 2000);
+});
+
+// Auto-join when a human joins a voice channel
+client.on('voiceStateUpdate', (oldState, newState) => {
+  // Someone joined a voice channel
+  if (newState.channel && !newState.member.user.bot) {
+    if (!voiceConnection || voiceConnection.state.status === 'destroyed') {
+      console.log(`🔊 ${newState.member.displayName} joined voice, auto-joining...`);
+      joinAndListen(newState.channel.id, newState.guild.id, newState.guild.voiceAdapterCreator);
+    }
+  }
+  
+  // Everyone left the voice channel — disconnect
+  if (oldState.channel && voiceConnection) {
+    const humans = oldState.channel.members.filter(m => !m.user.bot);
+    if (humans.size === 0) {
+      console.log('🔇 No humans left in voice, disconnecting...');
+      voiceConnection.destroy();
+      voiceConnection = null;
+    }
+  }
 });
 
 // ── Monitor text channels for agent replies ─────────────────
@@ -83,11 +106,13 @@ client.on('messageCreate', async (message) => {
   // Ignore messages from this bot itself
   if (message.author.id === client.user.id) return;
   
+  // Ignore webhook messages (that's us forwarding voice transcriptions)
+  if (message.webhookId) return;
+  
   // Only listen to the active channel
   if (message.channel.id !== activeChannelId) return;
   
   // Only speak replies from bots (agents) — not from the human
-  // (the human's voice is already in the voice channel)
   if (!message.author.bot) return;
   
   // Don't process while we're still handling a previous utterance
@@ -131,15 +156,8 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
     
-    voiceConnection = joinVoiceChannel({
-      channelId: member.voice.channelId,
-      guildId: interaction.guildId,
-      adapterCreator: interaction.guild.voiceAdapterCreator,
-      selfDeaf: false,
-    });
-    
+    joinAndListen(member.voice.channelId, interaction.guildId, interaction.guild.voiceAdapterCreator);
     await interaction.reply(`🕷️ Joined voice! Bridging to <#${activeChannelId}>`);
-    startListening();
   }
   
   if (interaction.commandName === 'switch') {
@@ -172,15 +190,8 @@ client.on('messageCreate', async (message) => {
       return;
     }
     
-    voiceConnection = joinVoiceChannel({
-      channelId: member.voice.channelId,
-      guildId: message.guildId,
-      adapterCreator: message.guild.voiceAdapterCreator,
-      selfDeaf: false,
-    });
-    
+    joinAndListen(member.voice.channelId, message.guildId, message.guild.voiceAdapterCreator);
     await message.reply(`🕷️ Joined! Bridging voice ↔ <#${activeChannelId}>`);
-    startListening();
   }
   
   if (content === '>leave' || content === '>l') {
@@ -205,10 +216,46 @@ function startListening() {
   const receiver = voiceConnection.receiver;
   
   receiver.speaking.on('start', (userId) => {
-    // Only listen to non-bots
-    const member = voiceConnection.joinConfig.guildId; // we'll check later
     handleRecordingForUser(userId);
   });
+}
+
+// ── Auto-join: join voice channel when a human is there ─────
+function autoJoinVoice() {
+  const guild = client.guilds.cache.first();
+  if (!guild) return;
+  
+  // Find a voice channel with a non-bot member
+  for (const [, channel] of guild.channels.cache) {
+    if (channel.type !== 2) continue; // 2 = GUILD_VOICE
+    const humans = channel.members.filter(m => !m.user.bot);
+    if (humans.size > 0) {
+      console.log(`🔊 Auto-joining voice channel: ${channel.name} (${humans.size} humans)`);
+      joinAndListen(channel.id, guild.id, guild.voiceAdapterCreator);
+      return;
+    }
+  }
+  console.log('🔇 No humans in voice channels, waiting...');
+}
+
+function joinAndListen(channelId, guildId, adapterCreator) {
+  if (voiceConnection) {
+    try { voiceConnection.destroy(); } catch {}
+  }
+  
+  voiceConnection = joinVoiceChannel({
+    channelId: channelId,
+    guildId: guildId,
+    adapterCreator: adapterCreator,
+    selfDeaf: false,
+  });
+  
+  voiceConnection.on('error', (err) => {
+    console.error('Voice connection error:', err.message);
+  });
+  
+  startListening();
+  console.log(`✅ Joined voice channel and listening`);
 }
 
 // Track active recordings to avoid duplicates
@@ -370,7 +417,12 @@ function getChannelName(channelId) {
   return 'unknown';
 }
 
-// ── Forward transcription to active text channel ────────────
+// ── Config for OpenClaw Responses API ────────────────────────
+const OPENCLAW_URL = process.env.OPENCLAW_URL || 'http://localhost:18789';
+const OPENCLAW_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || '';
+const OPENCLAW_MODEL = process.env.OPENCLAW_MODEL || 'anthropic/claude-sonnet-4-5';
+
+// ── Forward transcription to OpenClaw and active text channel ─
 async function forwardToChannel(text, userId) {
   if (!activeChannelId) {
     console.error('No active channel set!');
@@ -378,18 +430,64 @@ async function forwardToChannel(text, userId) {
   }
   
   try {
+    // 1. Post the user's voice message to the channel (for history)
     const channel = await client.channels.fetch(activeChannelId);
-    if (!channel) {
-      console.error(`Could not fetch channel ${activeChannelId}`);
-      return;
+    if (channel) {
+      await channel.send(`🎤 ${text}`);
+    }
+    console.log(`📤 Posted voice message to channel: ${text}`);
+    
+    // 2. Call OpenClaw Responses API to get a reply
+    console.log(`🧠 Asking OpenClaw...`);
+    const response = await axios.post(`${OPENCLAW_URL}/v1/responses`, {
+      model: OPENCLAW_MODEL,
+      input: text,
+    }, {
+      headers: {
+        'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    });
+    
+    console.log('Raw API response:', JSON.stringify(response.data).substring(0, 500));
+    // Extract the text reply
+    let reply = '';
+    if (response.data?.output) {
+      for (const item of response.data.output) {
+        if (item.type === 'message' && item.content) {
+          for (const c of item.content) {
+            if (c.type === 'output_text') reply += c.text;
+          }
+        }
+      }
     }
     
-    // Post the transcription. Use a voice emoji to indicate it came from voice.
-    await channel.send(`🎤 ${text}`);
-    console.log(`📤 Forwarded to #${channel.name}: ${text}`);
+    if (reply) {
+      console.log(`💬 OpenClaw reply: ${reply.substring(0, 100)}...`);
+      
+      // 3. Post the reply to the channel (for history)
+      if (channel) {
+        // Split long messages
+        const chunks = reply.match(/[\s\S]{1,2000}/g) || [reply];
+        for (const chunk of chunks) {
+          await channel.send(chunk);
+        }
+      }
+      
+      // 4. Speak the reply via TTS
+      lastTTSText = reply;
+      await speakText(reply);
+    } else {
+      console.log('⚠️ Empty reply from OpenClaw');
+    }
     
   } catch (error) {
-    console.error(`Failed to forward to channel: ${error.message}`);
+    console.error(`Failed to process: ${error.message}`);
+    if (error.response) {
+      console.error(`Response status: ${error.response.status}`);
+      console.error(`Response data: ${JSON.stringify(error.response.data).substring(0, 200)}`);
+    }
   }
 }
 
