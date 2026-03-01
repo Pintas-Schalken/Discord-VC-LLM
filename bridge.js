@@ -25,7 +25,7 @@ const prism = require('prism-media');
 const path = require('path');
 
 // ── Config ──────────────────────────────────────────────────
-const TOKEN = process.env.DISCORD_TOKEN;
+const TOKEN = process.env.DISCORD_PINTAS_VOICE_TOKEN;
 const OPENAI_KEY = process.env.LLM_API;
 const STT_ENDPOINT = process.env.STT_ENDPOINT || 'https://api.openai.com';
 const STT_MODEL = process.env.STT_MODEL || 'whisper-1';
