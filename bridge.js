@@ -37,16 +37,43 @@ const WAIT_TIME = parseInt(process.env.WAIT_TIME || '1500');
 // Channel map: friendly name → Discord text channel ID
 // Update these with your actual channel IDs
 const CHANNEL_MAP = {
-  'pintas':   process.env.CHANNEL_PINTAS   || '',
-  'general':  process.env.CHANNEL_PINTAS   || '',
-  'wealth':   process.env.CHANNEL_WEALTH   || '',
-  'webster':  process.env.CHANNEL_WEALTH   || '',
-  'bob':      process.env.CHANNEL_BOB      || '',
-  'builder':  process.env.CHANNEL_BOB      || '',
-  'ward':     process.env.CHANNEL_WARD     || '',
-  'sentinel': process.env.CHANNEL_WARD     || '',
-  'erin':     process.env.CHANNEL_ERIN     || '',
-  'council':  process.env.CHANNEL_COUNCIL  || '',
+  // Main agents
+  'pintas':       '1476464209238822934',
+  'general':      '1476464209238822934',
+  'wealth':       '1477208940663148585',
+  'webster':      '1477208940663148585',
+  'bob':          '1477208937546649674',
+  'builder':      '1477208937546649674',
+  'ward':         '1477208941820776509',
+  'sentinel':     '1477208941820776509',
+  'erin':         '1477208939119771699',
+  // Council
+  'council':      '1476855961082658846',
+  'cost':         '1476856006385340468',
+  'presentation': '1476855983371452440',
+  // Webster sub-channels
+  'crypto':       '1476855577241190441',
+  'market':       '1476855598254657618',
+  'retirement':   '1476855669838708799',
+  // Bob sub-channels
+  'cyber-nest':   '1476855691548561491',
+  'cybernest':    '1476855691548561491',
+  'infrastructure': '1476855835052347404',
+  'skill-forge':  '1477266270411030589',
+  'teams':        '1476855765120848084',
+  // Ward sub-channels
+  'security':     '1476855857516904552',
+  'pr-reviews':   '1476855877632921653',
+  // Erin sub-channels
+  'people':       '1476855898684129364',
+  'meeting-prep': '1476855939918205096',
+  // Standalone
+  'architecture': '1476857761693175839',
+  'databricks':   '1476857763295658110',
+  'data-empire':  '1476912986902892587',
+  'daily':        '1476855475583713352',
+  'todo':         '1476855499671732371',
+  'voice-comms':  '1477600062413733918',
 };
 
 const DEFAULT_CHANNEL = process.env.CHANNEL_PINTAS || '';
@@ -80,6 +107,15 @@ client.once('ready', () => {
   setTimeout(() => autoJoinVoice(), 2000);
 });
 
+// Periodic voice connection health check (every 5 min)
+setInterval(() => {
+  if (voiceConnection && voiceConnection.state.status !== 'ready' && voiceConnection.state.status !== 'signalling') {
+    console.log(`⚠️ Voice connection stale (${voiceConnection.state.status}), will rejoin on next voice event`);
+    try { voiceConnection.destroy(); } catch {}
+    voiceConnection = null;
+  }
+}, 5 * 60 * 1000);
+
 // Auto-join when a human joins a voice channel
 client.on('voiceStateUpdate', (oldState, newState) => {
   // Someone joined a voice channel
@@ -109,7 +145,11 @@ client.on('messageCreate', async (message) => {
   // Ignore webhook messages (that's us forwarding voice transcriptions)
   if (message.webhookId) return;
   
-  // Only listen to the active channel
+  // Only listen to mapped channels
+  const isMappedChannel = Object.values(CHANNEL_MAP).includes(message.channel.id);
+  if (!isMappedChannel) return;
+  
+  // Only speak if it's from the currently active channel
   if (message.channel.id !== activeChannelId) return;
   
   // Only speak replies from bots (agents) — not from the human
@@ -407,7 +447,7 @@ function switchChannel(target) {
   
   previousChannelId = activeChannelId;
   activeChannelId = channelId;
-  return `🔀 Switched to ${target}. Voice is now bridged to that channel.`;
+  return `Switched to ${target}.`;
 }
 
 function getChannelName(channelId) {
@@ -429,29 +469,32 @@ async function forwardToChannel(text, userId) {
     return;
   }
   
+  const channelName = getChannelName(activeChannelId);
+  
   try {
-    // 1. Post the user's voice message to the channel (for history)
+    // Post the voice message to the channel (for history)
     const channel = await client.channels.fetch(activeChannelId);
-    if (channel) {
-      await channel.send(`🎤 ${text}`);
-    }
-    console.log(`📤 Posted voice message to channel: ${text}`);
+    if (channel) await channel.send(`🎤 ${text}`);
+    console.log(`📤 Posted to #${channelName}: ${text}`);
     
-    // 2. Call OpenClaw Responses API to get a reply
-    console.log(`🧠 Asking OpenClaw...`);
+    // Use Responses API for everything — include channel/agent context
+    let prompt = text;
+    if (channelName !== 'pintas' && channelName !== 'general') {
+      prompt = `[Jeroen is talking to ${channelName} via voice. Route this to the ${channelName} agent or answer as that agent would.] ${text}`;
+    }
+    
+    console.log(`🧠 Asking OpenClaw (context: ${channelName})...`);
     const response = await axios.post(`${OPENCLAW_URL}/v1/responses`, {
       model: OPENCLAW_MODEL,
-      input: text,
+      input: prompt,
     }, {
       headers: {
         'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      timeout: 30000,
+      timeout: 60000,
     });
     
-    console.log('Raw API response:', JSON.stringify(response.data).substring(0, 500));
-    // Extract the text reply
     let reply = '';
     if (response.data?.output) {
       for (const item of response.data.output) {
@@ -464,30 +507,28 @@ async function forwardToChannel(text, userId) {
     }
     
     if (reply) {
-      console.log(`💬 OpenClaw reply: ${reply.substring(0, 100)}...`);
+      console.log(`💬 Reply (${channelName}): ${reply.substring(0, 100)}...`);
       
-      // 3. Post the reply to the channel (for history)
+      // Post reply in channel for history
       if (channel) {
-        // Split long messages
         const chunks = reply.match(/[\s\S]{1,2000}/g) || [reply];
-        for (const chunk of chunks) {
-          await channel.send(chunk);
-        }
+        for (const chunk of chunks) await channel.send(chunk);
       }
       
-      // 4. Speak the reply via TTS
-      lastTTSText = reply;
-      await speakText(reply);
+      // Speak with channel prefix if not pintas
+      const spokenReply = (channelName !== 'pintas' && channelName !== 'general')
+        ? `From ${channelName}: ${reply}`
+        : reply;
+      
+      lastTTSText = spokenReply;
+      await speakText(spokenReply);
     } else {
       console.log('⚠️ Empty reply from OpenClaw');
     }
     
   } catch (error) {
     console.error(`Failed to process: ${error.message}`);
-    if (error.response) {
-      console.error(`Response status: ${error.response.status}`);
-      console.error(`Response data: ${JSON.stringify(error.response.data).substring(0, 200)}`);
-    }
+    isProcessing = false;
   }
 }
 
