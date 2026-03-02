@@ -88,6 +88,7 @@ let monitoredBotIds = new Set(); // bot IDs we watch for replies
 let lastMessageTimestamps = {}; // per-channel: last message we've seen
 let audioQueue = [];
 let currentAudioIndex = 0;
+let currentPlayer = null;
 
 // ── Discord Client ──────────────────────────────────────────
 const client = new Client({
@@ -142,8 +143,15 @@ client.on('messageCreate', async (message) => {
   // Ignore messages from this bot itself
   if (message.author.id === client.user.id) return;
   
+  // Ignore messages starting with 🎤 (voice transcriptions)
+  if (message.content.startsWith('🎤')) return;
+  
   // Ignore webhook messages (that's us forwarding voice transcriptions)
   if (message.webhookId) return;
+  
+  // Ignore heartbeat and system messages
+  if (message.content.includes('HEARTBEAT_OK')) return;
+  if (message.content.startsWith('[System')) return;
   
   // Only listen to mapped channels
   const isMappedChannel = Object.values(CHANNEL_MAP).includes(message.channel.id);
@@ -303,7 +311,6 @@ const activeRecordings = new Set();
 
 function handleRecordingForUser(userId) {
   if (activeRecordings.has(userId)) return;
-  if (isProcessing) return; // don't record while processing/speaking
   
   activeRecordings.add(userId);
   
@@ -379,6 +386,15 @@ async function transcribeAudio(mp3Path, userId) {
       return;
     }
     
+    // Filter out noise — very short phrases that are likely ambient
+    const noise = ['you', 'yeah', 'oh', 'ah', 'um', 'hmm', 'bye', 'okay', 'ok', 
+                    'thank you', 'thanks', 'uh', 'huh', 'mhm', 'so', 'well', 'right',
+                    'the', 'a', 'i', 'it', 'is', 'and', 'but'];
+    if (noise.includes(text.toLowerCase())) {
+      console.log(`(noise filtered: "${text}")`);
+      return;
+    }
+    
     console.log(`🎤 [${userId}]: ${text}`);
     
     // Check for voice commands first
@@ -413,6 +429,20 @@ async function handleVoiceCommand(text, userId) {
     previousChannelId = temp;
     const channelName = getChannelName(activeChannelId);
     await speakText(`Switched back to ${channelName}`);
+    return true;
+  }
+  
+  // Stop speaking
+  if (lower === 'stop' || lower === 'shut up' || lower === 'be quiet' || lower === 'silence' || lower === 'enough') {
+    if (currentPlayer) {
+      currentPlayer.stop();
+      audioQueue = [];
+      currentAudioIndex = 0;
+      currentPlayer = null;
+      isProcessing = false;
+      console.log('🛑 Stopped speaking by voice command');
+      // Don't speak a confirmation — they said stop!
+    }
     return true;
   }
   
@@ -477,11 +507,8 @@ async function forwardToChannel(text, userId) {
     if (channel) await channel.send(`🎤 ${text}`);
     console.log(`📤 Posted to #${channelName}: ${text}`);
     
-    // Use Responses API for everything — include channel/agent context
-    let prompt = text;
-    if (channelName !== 'pintas' && channelName !== 'general') {
-      prompt = `[Jeroen is talking to ${channelName} via voice. Route this to the ${channelName} agent or answer as that agent would.] ${text}`;
-    }
+    // Always include channel context so the model knows where we are
+    let prompt = `[Voice conversation with Jeroen. Current channel: #${channelName}. Keep responses concise for voice — 2-3 sentences unless asked for detail.] ${text}`;
     
     console.log(`🧠 Asking OpenClaw (context: ${channelName})...`);
     const response = await axios.post(`${OPENCLAW_URL}/v1/responses`, {
@@ -598,6 +625,7 @@ async function playAudioQueue() {
     if (audio) {
       await new Promise((resolve, reject) => {
         const player = createAudioPlayer();
+        currentPlayer = player;
         const resource = createAudioResource(audio.file);
         voiceConnection.subscribe(player);
         player.play(resource);
@@ -624,6 +652,7 @@ async function playAudioQueue() {
   isProcessing = false;
   currentAudioIndex = 0;
   audioQueue = [];
+  currentPlayer = null;
   console.log('🔇 Finished speaking.');
 }
 

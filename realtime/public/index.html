@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Pintas Voice 🕷️</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    .container {
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
+      padding: 20px;
+    }
+    
+    .spider-icon {
+      font-size: 64px;
+      margin-bottom: 10px;
+    }
+    
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #fff;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 40px;
+    }
+    
+    /* Pulsing orb */
+    .orb-container {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      margin: 0 auto 40px;
+    }
+    
+    .orb {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 40%, #2a1a4e, #1a0a2e);
+      box-shadow: 0 0 40px rgba(100, 50, 200, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      transition: all 0.3s ease;
+    }
+    
+    .orb.listening {
+      background: radial-gradient(circle at 40% 40%, #1a4e2a, #0a2e1a);
+      box-shadow: 0 0 60px rgba(50, 200, 100, 0.4);
+      animation: pulse-green 2s ease-in-out infinite;
+    }
+    
+    .orb.speaking {
+      background: radial-gradient(circle at 40% 40%, #4e2a1a, #2e1a0a);
+      box-shadow: 0 0 60px rgba(200, 100, 50, 0.4);
+      animation: pulse-orange 1s ease-in-out infinite;
+    }
+    
+    .orb.thinking {
+      background: radial-gradient(circle at 40% 40%, #1a2a4e, #0a1a2e);
+      box-shadow: 0 0 60px rgba(50, 100, 200, 0.4);
+      animation: pulse-blue 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-green {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(50, 200, 100, 0.3); }
+      50% { transform: scale(1.05); box-shadow: 0 0 80px rgba(50, 200, 100, 0.5); }
+    }
+    
+    @keyframes pulse-orange {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(200, 100, 50, 0.3); }
+      50% { transform: scale(1.08); box-shadow: 0 0 80px rgba(200, 100, 50, 0.5); }
+    }
+    
+    @keyframes pulse-blue {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(50, 100, 200, 0.3); }
+      50% { transform: scale(1.03); box-shadow: 0 0 60px rgba(50, 100, 200, 0.4); }
+    }
+    
+    .status {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 30px;
+      min-height: 24px;
+    }
+    
+    .status.listening { color: #4ade80; }
+    .status.speaking { color: #fb923c; }
+    .status.thinking { color: #60a5fa; }
+    .status.idle { color: #888; }
+    
+    .transcript {
+      font-size: 13px;
+      color: #aaa;
+      min-height: 40px;
+      margin-bottom: 30px;
+      padding: 0 20px;
+      line-height: 1.4;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    
+    .btn {
+      width: 200px;
+      padding: 16px 32px;
+      border: none;
+      border-radius: 50px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-start {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+    }
+    
+    .btn-start:hover { transform: scale(1.05); }
+    .btn-start:active { transform: scale(0.95); }
+    
+    .btn-stop {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
+    }
+    
+    .btn-stop:hover { transform: scale(1.05); }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .cost {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spider-icon">🕷️</div>
+    <h1>Pintas Voice</h1>
+    <p class="subtitle">Tap to start a conversation</p>
+    
+    <div class="orb-container">
+      <div class="orb" id="orb">🎙️</div>
+    </div>
+    
+    <div class="status idle" id="status">Ready</div>
+    <div class="transcript" id="transcript"></div>
+    
+    <button class="btn btn-start" id="startBtn" onclick="startSession()">Start Talking</button>
+    <button class="btn btn-stop" id="stopBtn" onclick="stopSession()" style="display:none">End Session</button>
+    
+    <div class="cost" id="cost"></div>
+  </div>
+
+  <script>
+    let pc = null;
+    let dc = null;
+    let audioEl = null;
+    let startTime = null;
+
+    const orb = document.getElementById('orb');
+    const status = document.getElementById('status');
+    const transcript = document.getElementById('transcript');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const costEl = document.getElementById('cost');
+
+    function setState(state, text) {
+      orb.className = 'orb ' + state;
+      status.className = 'status ' + state;
+      status.textContent = text || state;
+    }
+
+    async function startSession() {
+      startBtn.disabled = true;
+      setState('thinking', 'Connecting...');
+
+      try {
+        // Create peer connection
+        pc = new RTCPeerConnection();
+
+        // Set up audio output
+        audioEl = document.createElement('audio');
+        audioEl.autoplay = true;
+        pc.ontrack = (e) => {
+          audioEl.srcObject = e.streams[0];
+          setState('listening', 'Listening...');
+        };
+
+        // Add microphone
+        const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+        pc.addTrack(ms.getTracks()[0]);
+
+        // Data channel for events
+        dc = pc.createDataChannel('oai-events');
+        dc.onmessage = handleEvent;
+        dc.onopen = () => console.log('Data channel open');
+
+        // Create offer
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        // Send to our server
+        const resp = await fetch('/session', {
+          method: 'POST',
+          body: offer.sdp,
+          headers: { 'Content-Type': 'application/sdp' },
+        });
+
+        if (!resp.ok) {
+          throw new Error(`Server error: ${resp.status}`);
+        }
+
+        const answerSdp = await resp.text();
+        await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'inline-block';
+        startTime = Date.now();
+
+      } catch (err) {
+        console.error('Failed to start:', err);
+        setState('idle', 'Error: ' + err.message);
+        startBtn.disabled = false;
+      }
+    }
+
+    function handleEvent(e) {
+      const event = JSON.parse(e.data);
+      
+      switch (event.type) {
+        case 'input_audio_buffer.speech_started':
+          setState('listening', 'Listening...');
+          break;
+          
+        case 'input_audio_buffer.speech_stopped':
+          setState('thinking', 'Thinking...');
+          break;
+          
+        case 'response.audio.started':
+        case 'response.output_item.added':
+          setState('speaking', 'Speaking...');
+          break;
+          
+        case 'response.audio.done':
+        case 'response.done':
+          setState('listening', 'Listening...');
+          // Update cost estimate
+          if (event.type === 'response.done' && event.response?.usage) {
+            updateCost(event.response.usage);
+          }
+          break;
+          
+        case 'input_audio_buffer.committed':
+          break;
+          
+        case 'conversation.item.input_audio_transcription.completed':
+          if (event.transcript) {
+            transcript.textContent = '🎤 ' + event.transcript;
+          }
+          break;
+          
+        case 'response.audio_transcript.delta':
+          // Show what Pintas is saying
+          if (event.delta) {
+            if (!transcript.textContent.startsWith('🕷️')) {
+              transcript.textContent = '🕷️ ';
+            }
+            transcript.textContent += event.delta;
+          }
+          break;
+          
+        case 'response.audio_transcript.done':
+          break;
+
+        case 'error':
+          console.error('Realtime error:', event.error);
+          setState('idle', 'Error: ' + (event.error?.message || 'Unknown'));
+          break;
+
+        default:
+          console.log('Event:', event.type);
+      }
+    }
+
+    function updateCost(usage) {
+      if (!startTime) return;
+      const minutes = ((Date.now() - startTime) / 60000).toFixed(1);
+      const inputTokens = usage.input_tokens || 0;
+      const outputTokens = usage.output_tokens || 0;
+      // gpt-realtime-mini pricing
+      const cost = (inputTokens * 0.60 / 1e6) + (outputTokens * 2.40 / 1e6);
+      costEl.textContent = `${minutes}min | ~$${cost.toFixed(4)} this session`;
+    }
+
+    function stopSession() {
+      if (pc) {
+        pc.close();
+        pc = null;
+      }
+      if (audioEl) {
+        audioEl.srcObject = null;
+        audioEl = null;
+      }
+      dc = null;
+      setState('idle', 'Session ended');
+      stopBtn.style.display = 'none';
+      startBtn.style.display = 'inline-block';
+      startBtn.disabled = false;
+    }
+
+    // Keep screen awake on mobile
+    if ('wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').catch(() => {});
+    }
+  </script>
+</body>
+</html>

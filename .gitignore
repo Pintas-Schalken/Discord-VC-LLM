@@ -6,3 +6,5 @@ recordings/*
 sounds/*.env
 recordings/
 sounds/
+realtime/certs/
+realtime/node_modules/
