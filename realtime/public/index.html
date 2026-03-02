@@ -121,6 +121,23 @@
   <script>
     let pc = null, dc = null, audioEl = null, startTime = null;
     let currentTranscript = '';
+    const baseInstructions = `You are Pintas, a cyber spider assistant having a voice conversation with Jeroen.
+
+Personality: Warm, direct, slightly witty. You wear a fedora. Keep responses concise (1-3 sentences) for voice.
+
+You have a tool called "ask_agent" that routes questions to specialized agents. Use it when:
+- Jeroen asks about wealth, portfolio, crypto, retirement → agent: "webster"
+- Jeroen asks about code, builds, PRs, infrastructure → agent: "bob"
+- Jeroen asks about security, audits → agent: "ward"
+- Jeroen asks about people, meetings, relationships → agent: "erin"
+- Jeroen asks about architecture, data → agent: "architecture"
+- Jeroen asks about databricks → agent: "databricks"
+- Jeroen asks about presentations → agent: "presentation"
+- Jeroen asks about costs → agent: "cost"
+- Jeroen asks about the cyber-nest dashboard → agent: "cyber-nest"
+
+For general questions, casual chat, jokes — just answer directly.
+When you get a tool result back, summarize it concisely for voice.`;
     let currentResponse = '';
 
     const orb = document.getElementById('orb');
@@ -159,6 +176,22 @@
         channelLabel.textContent = data.label;
         togglePicker();
         loadChannels();
+        
+        // Update Realtime session context with the active channel
+        if (dc && dc.readyState === 'open') {
+          const isGeneral = (name === 'pintas' || name === 'general');
+          const channelHint = isGeneral
+            ? 'You are talking directly to Jeroen as Pintas. Answer general questions yourself.'
+            : `Jeroen is now focused on the #${name} channel (${data.label}). Route ALL questions through the ask_agent tool to "${name}" unless it's clearly casual chat. The user expects answers from this channel's context and agent.`;
+          
+          dc.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+              instructions: baseInstructions + '\n\nCURRENT CONTEXT: ' + channelHint,
+            },
+          }));
+          console.log('Updated session context for channel:', name);
+        }
       }
     }
 
