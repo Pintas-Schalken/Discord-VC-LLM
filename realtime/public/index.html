@@ -17,146 +17,75 @@
       justify-content: center;
       overflow: hidden;
     }
+    .container { text-align: center; width: 100%; max-width: 400px; padding: 20px; }
+    .spider-icon { font-size: 48px; margin-bottom: 5px; }
+    h1 { font-size: 22px; font-weight: 600; color: #fff; }
+    .subtitle { font-size: 13px; color: #888; margin-bottom: 15px; }
     
-    .container {
-      text-align: center;
-      width: 100%;
-      max-width: 400px;
-      padding: 20px;
+    /* Channel indicator */
+    .channel-bar {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-bottom: 25px; padding: 10px 16px;
+      background: rgba(255,255,255,0.05); border-radius: 20px;
+      cursor: pointer; user-select: none;
+      transition: background 0.2s;
     }
+    .channel-bar:hover { background: rgba(255,255,255,0.1); }
+    .channel-label { font-size: 15px; font-weight: 500; color: #ccc; }
+    .channel-arrow { font-size: 12px; color: #666; }
     
-    .spider-icon {
-      font-size: 64px;
-      margin-bottom: 10px;
+    /* Channel picker */
+    .channel-picker {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85); z-index: 100;
+      padding: 40px 20px; overflow-y: auto;
     }
-    
-    h1 {
-      font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 5px;
-      color: #fff;
+    .channel-picker.open { display: block; }
+    .channel-picker h2 { font-size: 18px; color: #fff; margin-bottom: 15px; }
+    .ch-item {
+      padding: 14px 16px; margin-bottom: 4px;
+      background: rgba(255,255,255,0.05); border-radius: 12px;
+      font-size: 15px; cursor: pointer; transition: background 0.2s;
     }
+    .ch-item:hover { background: rgba(255,255,255,0.1); }
+    .ch-item.active { background: rgba(100,100,255,0.2); border: 1px solid rgba(100,100,255,0.4); }
+    .ch-close { margin-top: 20px; padding: 12px; color: #888; cursor: pointer; font-size: 14px; }
     
-    .subtitle {
-      font-size: 14px;
-      color: #888;
-      margin-bottom: 40px;
-    }
-    
-    /* Pulsing orb */
-    .orb-container {
-      position: relative;
-      width: 180px;
-      height: 180px;
-      margin: 0 auto 40px;
-    }
-    
+    /* Orb */
+    .orb-container { position: relative; width: 160px; height: 160px; margin: 0 auto 25px; }
     .orb {
-      width: 180px;
-      height: 180px;
-      border-radius: 50%;
+      width: 160px; height: 160px; border-radius: 50%;
       background: radial-gradient(circle at 40% 40%, #2a1a4e, #1a0a2e);
       box-shadow: 0 0 40px rgba(100, 50, 200, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-      transition: all 0.3s ease;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 44px; transition: all 0.3s ease;
     }
+    .orb.listening { background: radial-gradient(circle at 40% 40%, #1a4e2a, #0a2e1a); box-shadow: 0 0 60px rgba(50, 200, 100, 0.4); animation: pulse-green 2s ease-in-out infinite; }
+    .orb.speaking { background: radial-gradient(circle at 40% 40%, #4e2a1a, #2e1a0a); box-shadow: 0 0 60px rgba(200, 100, 50, 0.4); animation: pulse-orange 1s ease-in-out infinite; }
+    .orb.thinking { background: radial-gradient(circle at 40% 40%, #1a2a4e, #0a1a2e); box-shadow: 0 0 60px rgba(50, 100, 200, 0.4); animation: pulse-blue 1.5s ease-in-out infinite; }
     
-    .orb.listening {
-      background: radial-gradient(circle at 40% 40%, #1a4e2a, #0a2e1a);
-      box-shadow: 0 0 60px rgba(50, 200, 100, 0.4);
-      animation: pulse-green 2s ease-in-out infinite;
-    }
+    @keyframes pulse-green { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes pulse-orange { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    @keyframes pulse-blue { 0%,100% { transform: scale(1); } 50% { transform: scale(1.03); } }
     
-    .orb.speaking {
-      background: radial-gradient(circle at 40% 40%, #4e2a1a, #2e1a0a);
-      box-shadow: 0 0 60px rgba(200, 100, 50, 0.4);
-      animation: pulse-orange 1s ease-in-out infinite;
-    }
-    
-    .orb.thinking {
-      background: radial-gradient(circle at 40% 40%, #1a2a4e, #0a1a2e);
-      box-shadow: 0 0 60px rgba(50, 100, 200, 0.4);
-      animation: pulse-blue 1.5s ease-in-out infinite;
-    }
-    
-    @keyframes pulse-green {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(50, 200, 100, 0.3); }
-      50% { transform: scale(1.05); box-shadow: 0 0 80px rgba(50, 200, 100, 0.5); }
-    }
-    
-    @keyframes pulse-orange {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(200, 100, 50, 0.3); }
-      50% { transform: scale(1.08); box-shadow: 0 0 80px rgba(200, 100, 50, 0.5); }
-    }
-    
-    @keyframes pulse-blue {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(50, 100, 200, 0.3); }
-      50% { transform: scale(1.03); box-shadow: 0 0 60px rgba(50, 100, 200, 0.4); }
-    }
-    
-    .status {
-      font-size: 16px;
-      font-weight: 500;
-      margin-bottom: 30px;
-      min-height: 24px;
-    }
-    
-    .status.listening { color: #4ade80; }
-    .status.speaking { color: #fb923c; }
-    .status.thinking { color: #60a5fa; }
-    .status.idle { color: #888; }
+    .status { font-size: 15px; font-weight: 500; margin-bottom: 15px; min-height: 22px; }
+    .status.listening { color: #4ade80; } .status.speaking { color: #fb923c; }
+    .status.thinking { color: #60a5fa; } .status.idle { color: #888; }
     
     .transcript {
-      font-size: 13px;
-      color: #aaa;
-      min-height: 40px;
-      margin-bottom: 30px;
-      padding: 0 20px;
-      line-height: 1.4;
-      max-height: 80px;
-      overflow-y: auto;
+      font-size: 13px; color: #aaa; min-height: 36px; margin-bottom: 20px;
+      padding: 0 15px; line-height: 1.4; max-height: 70px; overflow-y: auto;
     }
     
     .btn {
-      width: 200px;
-      padding: 16px 32px;
-      border: none;
-      border-radius: 50px;
-      font-size: 18px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
+      width: 180px; padding: 14px 28px; border: none; border-radius: 50px;
+      font-size: 17px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
     }
-    
-    .btn-start {
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      color: white;
-    }
-    
+    .btn-start { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; }
     .btn-start:hover { transform: scale(1.05); }
-    .btn-start:active { transform: scale(0.95); }
-    
-    .btn-stop {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      color: white;
-    }
-    
-    .btn-stop:hover { transform: scale(1.05); }
-    
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-    
-    .cost {
-      margin-top: 20px;
-      font-size: 12px;
-      color: #666;
-    }
+    .btn-stop { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .cost { margin-top: 15px; font-size: 11px; color: #555; }
   </style>
 </head>
 <body>
@@ -164,6 +93,11 @@
     <div class="spider-icon">🕷️</div>
     <h1>Pintas Voice</h1>
     <p class="subtitle">Tap to start a conversation</p>
+    
+    <div class="channel-bar" id="channelBar" onclick="togglePicker()">
+      <span class="channel-label" id="channelLabel">🕷️ Pintas</span>
+      <span class="channel-arrow">▼</span>
+    </div>
     
     <div class="orb-container">
       <div class="orb" id="orb">🎙️</div>
@@ -178,11 +112,16 @@
     <div class="cost" id="cost"></div>
   </div>
 
+  <div class="channel-picker" id="picker">
+    <h2>Switch Channel</h2>
+    <div id="channelList"></div>
+    <div class="ch-close" onclick="togglePicker()">Cancel</div>
+  </div>
+
   <script>
-    let pc = null;
-    let dc = null;
-    let audioEl = null;
-    let startTime = null;
+    let pc = null, dc = null, audioEl = null, startTime = null;
+    let currentTranscript = '';
+    let currentResponse = '';
 
     const orb = document.getElementById('orb');
     const status = document.getElementById('status');
@@ -190,6 +129,40 @@
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const costEl = document.getElementById('cost');
+    const channelLabel = document.getElementById('channelLabel');
+    const picker = document.getElementById('picker');
+    const channelList = document.getElementById('channelList');
+
+    // Load channels
+    async function loadChannels() {
+      const resp = await fetch('/api/channels');
+      const data = await resp.json();
+      channelLabel.textContent = data.activeLabel;
+      
+      channelList.innerHTML = '';
+      for (const ch of data.channels) {
+        const div = document.createElement('div');
+        div.className = 'ch-item' + (ch.id === data.channels.find(c => c.name === data.active)?.id ? ' active' : '');
+        div.textContent = ch.label;
+        div.onclick = () => switchChannel(ch.name);
+        channelList.appendChild(div);
+      }
+    }
+
+    async function switchChannel(name) {
+      const resp = await fetch('/api/channel', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: name }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        channelLabel.textContent = data.label;
+        togglePicker();
+        loadChannels();
+      }
+    }
+
+    function togglePicker() { picker.classList.toggle('open'); }
 
     function setState(state, text) {
       orb.className = 'orb ' + state;
@@ -197,15 +170,21 @@
       status.textContent = text || state;
     }
 
+    // Log to Discord via server
+    function logMessage(role, text) {
+      if (!text || text.length < 3) return;
+      fetch('/api/log', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, text }),
+      }).catch(() => {});
+    }
+
     async function startSession() {
       startBtn.disabled = true;
       setState('thinking', 'Connecting...');
 
       try {
-        // Create peer connection
         pc = new RTCPeerConnection();
-
-        // Set up audio output
         audioEl = document.createElement('audio');
         audioEl.autoplay = true;
         pc.ontrack = (e) => {
@@ -213,29 +192,21 @@
           setState('listening', 'Listening...');
         };
 
-        // Add microphone
         const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
         pc.addTrack(ms.getTracks()[0]);
 
-        // Data channel for events
         dc = pc.createDataChannel('oai-events');
         dc.onmessage = handleEvent;
-        dc.onopen = () => console.log('Data channel open');
 
-        // Create offer
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
 
-        // Send to our server
         const resp = await fetch('/session', {
-          method: 'POST',
-          body: offer.sdp,
+          method: 'POST', body: offer.sdp,
           headers: { 'Content-Type': 'application/sdp' },
         });
 
-        if (!resp.ok) {
-          throw new Error(`Server error: ${resp.status}`);
-        }
+        if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
 
         const answerSdp = await resp.text();
         await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
@@ -245,7 +216,7 @@
         startTime = Date.now();
 
       } catch (err) {
-        console.error('Failed to start:', err);
+        console.error('Failed:', err);
         setState('idle', 'Error: ' + err.message);
         startBtn.disabled = false;
       }
@@ -257,6 +228,7 @@
       switch (event.type) {
         case 'input_audio_buffer.speech_started':
           setState('listening', 'Listening...');
+          currentTranscript = '';
           break;
           
         case 'input_audio_buffer.speech_stopped':
@@ -266,68 +238,51 @@
         case 'response.audio.started':
         case 'response.output_item.added':
           setState('speaking', 'Speaking...');
+          currentResponse = '';
           break;
           
         case 'response.audio.done':
         case 'response.done':
           setState('listening', 'Listening...');
-          // Update cost estimate
-          if (event.type === 'response.done' && event.response?.usage) {
-            updateCost(event.response.usage);
+          if (event.type === 'response.done') {
+            // Log the completed response to Discord
+            if (currentResponse) logMessage('assistant', currentResponse);
+            if (event.response?.usage) updateCost(event.response.usage);
           }
-          break;
-          
-        case 'input_audio_buffer.committed':
           break;
           
         case 'conversation.item.input_audio_transcription.completed':
           if (event.transcript) {
+            currentTranscript = event.transcript;
             transcript.textContent = '🎤 ' + event.transcript;
+            logMessage('user', event.transcript);
           }
           break;
           
         case 'response.audio_transcript.delta':
-          // Show what Pintas is saying
           if (event.delta) {
-            if (!transcript.textContent.startsWith('🕷️')) {
-              transcript.textContent = '🕷️ ';
-            }
-            transcript.textContent += event.delta;
+            currentResponse += event.delta;
+            transcript.textContent = '🕷️ ' + currentResponse;
           }
-          break;
-          
-        case 'response.audio_transcript.done':
           break;
 
         case 'error':
-          console.error('Realtime error:', event.error);
+          console.error('Error:', event.error);
           setState('idle', 'Error: ' + (event.error?.message || 'Unknown'));
           break;
-
-        default:
-          console.log('Event:', event.type);
       }
     }
 
     function updateCost(usage) {
       if (!startTime) return;
       const minutes = ((Date.now() - startTime) / 60000).toFixed(1);
-      const inputTokens = usage.input_tokens || 0;
-      const outputTokens = usage.output_tokens || 0;
-      // gpt-realtime-mini pricing
-      const cost = (inputTokens * 0.60 / 1e6) + (outputTokens * 2.40 / 1e6);
-      costEl.textContent = `${minutes}min | ~$${cost.toFixed(4)} this session`;
+      const cost = ((usage.input_tokens || 0) * 0.60 / 1e6) + ((usage.output_tokens || 0) * 2.40 / 1e6);
+      costEl.textContent = `${minutes}min | ~$${cost.toFixed(4)}`;
     }
 
     function stopSession() {
-      if (pc) {
-        pc.close();
-        pc = null;
-      }
-      if (audioEl) {
-        audioEl.srcObject = null;
-        audioEl = null;
-      }
+      if (pc) { pc.close(); pc = null; }
+      if (audioEl) { audioEl.srcObject = null; audioEl = null; }
       dc = null;
       setState('idle', 'Session ended');
       stopBtn.style.display = 'none';
@@ -335,10 +290,8 @@
       startBtn.disabled = false;
     }
 
-    // Keep screen awake on mobile
-    if ('wakeLock' in navigator) {
-      navigator.wakeLock.request('screen').catch(() => {});
-    }
+    if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(() => {});
+    loadChannels();
   </script>
 </body>
 </html>

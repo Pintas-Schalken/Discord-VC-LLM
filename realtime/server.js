@@ -4,14 +4,67 @@ import http from "http";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { Client, GatewayIntentBits } from "discord.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3456;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3457;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const DISCORD_TOKEN = process.env.DISCORD_PINTAS_VOICE_TOKEN;
 
+// Channel map
+const CHANNELS = {
+  'pintas':       { id: '1476464209238822934', label: '🕷️ Pintas' },
+  'general':      { id: '1476464209238822934', label: '🕷️ Pintas' },
+  'wealth':       { id: '1477208940663148585', label: '💰 Webster' },
+  'webster':      { id: '1477208940663148585', label: '💰 Webster' },
+  'bob':          { id: '1477208937546649674', label: '🔨 Bob' },
+  'builder':      { id: '1477208937546649674', label: '🔨 Bob' },
+  'ward':         { id: '1477208941820776509', label: '🛡️ Ward' },
+  'sentinel':     { id: '1477208941820776509', label: '🛡️ Ward' },
+  'erin':         { id: '1477208939119771699', label: '🔎 Erin' },
+  'council':      { id: '1476855961082658846', label: '🏛️ Council' },
+  'crypto':       { id: '1476855577241190441', label: '📈 Crypto' },
+  'databricks':   { id: '1476857763295658110', label: '🧱 Databricks' },
+  'data-empire':  { id: '1476912986902892587', label: '📊 Data Empire' },
+  'architecture': { id: '1476857761693175839', label: '🏗️ Architecture' },
+  'cyber-nest':   { id: '1476855691548561491', label: '🕸️ Cyber-Nest' },
+  'presentation': { id: '1476855983371452440', label: '🎤 Presentation' },
+  'cost':         { id: '1476856006385340468', label: '💵 Cost' },
+};
+
+let activeChannel = 'pintas';
+
+// Discord client for logging
+const discord = new Client({
+  intents: [GatewayIntentBits.Guilds],
+});
+
+let discordReady = false;
+if (DISCORD_TOKEN) {
+  discord.once('ready', () => {
+    console.log(`📨 Discord connected as ${discord.user.tag}`);
+    discordReady = true;
+  });
+  discord.login(DISCORD_TOKEN).catch(e => console.error('Discord login failed:', e.message));
+}
+
+async function logToDiscord(channelName, text) {
+  if (!discordReady) return;
+  const ch = CHANNELS[channelName];
+  if (!ch) return;
+  try {
+    const channel = await discord.channels.fetch(ch.id);
+    if (channel) await channel.send(text);
+  } catch (e) {
+    console.error('Discord send error:', e.message);
+  }
+}
+
+// Express setup
 app.use(express.text({ type: ["application/sdp", "text/plain"] }));
+app.use(express.json());
 app.use(express.static(join(__dirname, "public")));
 
 const SYSTEM_PROMPT = `You are Pintas, a cyber spider assistant. You're having a voice conversation with Jeroen, your human.
@@ -64,12 +117,46 @@ app.post("/session", async (req, res) => {
   }
 });
 
-// HTTP server
+// API: get current channel + channel list
+app.get("/api/channels", (req, res) => {
+  const list = [...new Set(Object.entries(CHANNELS).map(([k, v]) => JSON.stringify({ name: k, ...v })))].map(s => JSON.parse(s));
+  // Dedupe by id
+  const seen = new Set();
+  const unique = [];
+  for (const ch of list) {
+    if (!seen.has(ch.id)) {
+      seen.add(ch.id);
+      unique.push(ch);
+    }
+  }
+  res.json({ active: activeChannel, activeLabel: CHANNELS[activeChannel]?.label, channels: unique });
+});
+
+// API: switch channel
+app.post("/api/channel", (req, res) => {
+  const { channel } = req.body;
+  if (CHANNELS[channel]) {
+    activeChannel = channel;
+    console.log(`🔀 Switched to #${channel}`);
+    res.json({ ok: true, active: channel, label: CHANNELS[channel].label });
+  } else {
+    res.status(400).json({ error: `Unknown channel: ${channel}` });
+  }
+});
+
+// API: log a message to the active Discord channel
+app.post("/api/log", async (req, res) => {
+  const { role, text } = req.body;
+  const prefix = role === 'user' ? '🎤' : '🕷️';
+  await logToDiscord(activeChannel, `${prefix} ${text}`);
+  res.json({ ok: true });
+});
+
+// Servers
 http.createServer(app).listen(PORT, "0.0.0.0", () => {
   console.log(`🕷️ HTTP: http://0.0.0.0:${PORT}`);
 });
 
-// HTTPS server (for mobile mic access)
 try {
   const httpsOptions = {
     key: fs.readFileSync(join(__dirname, "certs/key.pem")),
