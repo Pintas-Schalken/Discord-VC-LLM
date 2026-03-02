@@ -266,10 +266,47 @@
           }
           break;
 
+        case 'response.function_call_arguments.done':
+          // A tool was called — handle it server-side
+          handleToolCall(event);
+          break;
+
         case 'error':
           console.error('Error:', event.error);
           setState('idle', 'Error: ' + (event.error?.message || 'Unknown'));
           break;
+      }
+    }
+
+    async function handleToolCall(event) {
+      setState('thinking', 'Asking agent...');
+      try {
+        const resp = await fetch('/api/tool', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: event.name,
+            arguments: event.arguments,
+            call_id: event.call_id,
+          }),
+        });
+        const data = await resp.json();
+        
+        // Send the tool result back to the Realtime API via data channel
+        if (dc && dc.readyState === 'open') {
+          dc.send(JSON.stringify({
+            type: 'conversation.item.create',
+            item: {
+              type: 'function_call_output',
+              call_id: event.call_id,
+              output: JSON.stringify(data.result),
+            },
+          }));
+          // Trigger a new response
+          dc.send(JSON.stringify({ type: 'response.create' }));
+        }
+      } catch (e) {
+        console.error('Tool call failed:', e);
       }
     }
 
